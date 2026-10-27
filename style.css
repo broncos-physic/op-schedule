@@ -12,6 +12,9 @@
   --outside: #fafbfc;
   --today: #14213d;
   --focus: #2f6fed;
+  --off-bg: #dde1e9;
+  --off-ink: #3f4858;
+  --off-line: #8b95a7;
 
   --c-A: #2f6fed;
   --c-M: #4b3f8f;
@@ -38,6 +41,9 @@
     --outside: #121826;
     --today: #e6eaf2;
     --focus: #7aa2ff;
+    --off-bg: #2c3448;
+    --off-ink: #d3d9e6;
+    --off-line: #6d7893;
 
     --c-A: #4f86f5;
     --c-M: #7a6bd6;
@@ -208,14 +214,13 @@ main { padding: 18px clamp(12px, 3vw, 28px) 48px; max-width: 1280px; margin: 0 a
 .muted { color: var(--muted); }
 .co-head .inline { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin-right: 8px; }
 .chip.off, .chip.co.off, .chip.row.off {
-  background: transparent;
-  color: var(--muted);
-  border: 1px dashed var(--line);
-  border-left: 4px dashed var(--line);
+  background: var(--off-bg);
+  color: var(--off-ink);
+  border: 1px dashed var(--off-line);
+  border-left: 4px dashed var(--off-line);
   font-style: italic;
-  opacity: 0.8;
 }
-.chip.co.off { border-left-color: hsl(var(--h) 35% 62%); }
+.chip.co.off { border-left-color: hsl(var(--h) 45% 55%); }
 .t-start { display: none; }
 .chip.co .sc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--sc, var(--c-other)); margin-right: 4px; vertical-align: 0; }
 .chip.status { background: transparent; color: var(--muted); border: 1px dashed var(--line); font-style: italic; }

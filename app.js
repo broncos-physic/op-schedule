@@ -64,6 +64,8 @@
       aliases: 'Bernard = Bernard K',
       order: 'Bernard C\nJanis\nJohn\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw',
       showOff: true,
+      offFor: 'Bernard C\nJanis\nJohn\nAlex\nSarah\nYaw',
+      time24: false,
       exEnd: true,
       exRange: 'future',
       exReminder: '0',
@@ -119,6 +121,9 @@
   const clearFile = () => dbRun('readwrite', (s) => s.delete('last'));
 
   /* ---------- state ---------- */
+
+  const fmtT = (min, short) => C.fmtTime(min, short, prefs.time24);
+  const fmtR = (s, e, short) => C.fmtRange(s, e, short, prefs.time24);
 
   let prefs = loadPrefs();
   let book = null;      // parsed SheetJS workbook, kept so settings changes can re-read it
@@ -246,7 +251,8 @@
     $('toggleCo').setAttribute('aria-pressed', String(prefs.showCo));
     $('coPanel').hidden = !prefs.showCo;
     $('showOff').checked = prefs.showOff;
-    document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === prefs.view)));
+    document.querySelectorAll('#hoursSeg button').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.hours === '24') === !!prefs.time24)));
+    document.querySelectorAll('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === prefs.view)));
   }
 
   function renderFileStatus() {
@@ -305,7 +311,7 @@
 
   function rangeText(s) {
     const st = C.toMin(s.start), en = C.toMin(s.end);
-    return C.fmtRange(st, en <= st ? en + 1440 : en, false);
+    return fmtR(st, en <= st ? en + 1440 : en, false);
   }
 
   function renderLegend() {
@@ -316,7 +322,7 @@
       if (s.weekend) items.splice(Object.keys(prefs.shifts).indexOf(code) + 1, 0, h('span', { 'data-code': code }, h('i'), `${s.label} on Sat/Sun: ${rangeText(s.weekend)}`));
     }
     items.push(h('span', { 'data-code': 'S' }, h('i'), 'Special shift (no time listed)'));
-    if (prefs.showOff && prefs.showCo) items.push(h('span', { class: 'muted' }, 'Dashed = day off'));
+    if (prefs.showOff && prefs.showCo && parseNames(prefs.offFor).size) items.push(h('span', { class: 'muted' }, 'Dashed = day off'));
     L.replaceChildren(...items);
   }
 
@@ -327,7 +333,7 @@
   }
 
   function chipTitle(person, r) {
-    if (r.kind === 'shift') return `${person.name}: ${r.label} (${C.fmtRange(r.startMin, r.endMin, false)})`;
+    if (r.kind === 'shift') return `${person.name}: ${r.label} (${fmtR(r.startMin, r.endMin, false)})`;
     return `${person.name}: ${r.label}`;
   }
 
@@ -345,7 +351,7 @@
 
     let text;
     if (r.kind === 'shift') {
-      const range = C.fmtRange(r.startMin, r.endMin, true);
+      const range = fmtR(r.startMin, r.endMin, true);
       text = range;
     } else if (r.kind === 'allday') text = 'Special shift';
     else if (r.kind === 'timeoff') text = 'Off (requested)';
@@ -354,9 +360,9 @@
 
     const el = h('div', attrs);
     if (r.kind === 'shift') {
-      const range = C.fmtRange(r.startMin, r.endMin, true);
+      const range = fmtR(r.startMin, r.endMin, true);
       if (mode === 'co') el.append(h('span', { class: 'sc' }), h('span', { class: 'nm' }, person.name), ' ', h('span', { class: 'time' }, range));
-      else el.append(h('span', { class: 't-full' }, range), h('span', { class: 't-start' }, C.fmtTime(r.startMin, true)));
+      else el.append(h('span', { class: 't-full' }, range), h('span', { class: 't-start' }, fmtT(r.startMin, true)));
     } else {
       el.textContent = text;
     }
@@ -371,11 +377,14 @@
   }
 
   // One person on one day: their shift, or a dashed "off" chip when they're on this month's schedule but not working.
+  let offKeys = new Set();
+  const parseNames = (t) => new Set(String(t || '').split(/\r?\n/).map((n) => n.trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean));
+
   function chipFor(person, date, mode) {
     const r = cellFor(person, date);
     if (mode === 'you') return makeChip(person, r, 'you');
     if (r && (r.kind === 'shift' || r.kind === 'allday' || r.kind === 'unknown')) return makeChip(person, r, mode);
-    if (prefs.showOff && person.months && person.months.has(ymd(date).slice(0, 7))) return makeOff(person, mode);
+    if (prefs.showOff && offKeys.has(person.key) && person.months && person.months.has(ymd(date).slice(0, 7))) return makeOff(person, mode);
     return null;
   }
 
@@ -384,6 +393,7 @@
     const cal = $('calendar');
     const you = currentPerson();
     const cos = coworkerKeys().map((k) => data.people.get(k)).filter(Boolean);
+    offKeys = parseNames(prefs.offFor);
     $('btnExport').disabled = !you;
     if (prefs.view === 'week') renderWeek(cal, you, cos);
     else renderMonth(cal, you, cos);
@@ -464,7 +474,7 @@
 
   function currentEvents() {
     return C.buildPersonEvents(currentPerson(), prefs.shifts, {
-      ...exportRange(), includeOff: $('exOff').checked, prefix: $('exPrefix').value.trim() || 'Work', midnightAs2359: $('exEnd').checked,
+      ...exportRange(), time24: prefs.time24, includeOff: $('exOff').checked, prefix: $('exPrefix').value.trim() || 'Work', midnightAs2359: $('exEnd').checked,
     });
   }
 
@@ -531,6 +541,7 @@
     $('stPattern').value = prefs.sheetPattern;
     $('stAliases').value = prefs.aliases;
     $('stOrder').value = prefs.order;
+    $('stOff').value = prefs.offFor;
     $('settingsDlg').showModal();
   }
 
@@ -543,6 +554,7 @@
     const pattern = $('stPattern').value.trim() || C.DEFAULT_SHEET_PATTERN;
     const aliases = $('stAliases').value;
     prefs.order = $('stOrder').value;
+    prefs.offFor = $('stOff').value;
     const patternChanged = pattern !== prefs.sheetPattern || aliases !== prefs.aliases;
     prefs.aliases = aliases;
     try { new RegExp(pattern, 'i'); prefs.sheetPattern = pattern; } catch (e) { toast('That sheet pattern isn\'t valid, so it was left as it was.'); }
@@ -576,8 +588,11 @@
     $('coAll').addEventListener('click', () => { prefs.coworkers = null; savePrefs(); renderCoworkers(); renderCalendar(); });
     $('coNone').addEventListener('click', () => { prefs.coworkers = []; savePrefs(); renderCoworkers(); renderCalendar(); });
 
-    document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#viewSeg button').forEach((b) => b.addEventListener('click', () => {
       prefs.view = b.dataset.view; savePrefs(); renderAll();
+    }));
+    document.querySelectorAll('#hoursSeg button').forEach((b) => b.addEventListener('click', () => {
+      prefs.time24 = b.dataset.hours === '24'; savePrefs(); renderAll();
     }));
     $('prev').addEventListener('click', () => step(-1));
     $('next').addEventListener('click', () => step(1));

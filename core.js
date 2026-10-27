@@ -61,15 +61,16 @@
   };
   const toHHMM = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
 
-  // 15:30 -> "3:30 PM", 0 -> "12 AM"
-  function fmtTime(min, short) {
+  // 15:30 -> "3:30 PM" (or "3:30p" when short), 0 -> "12 AM"; with use24 -> "15:30", "00:00"
+  function fmtTime(min, short, use24) {
     const t = ((min % 1440) + 1440) % 1440;
-    const h24 = Math.floor(t / 60), m = t % 60;
-    const h = h24 % 12 === 0 ? 12 : h24 % 12;
-    const ap = h24 < 12 ? (short ? 'a' : ' AM') : short ? 'p' : ' PM';
+    const hh = Math.floor(t / 60), m = t % 60;
+    if (use24) return `${pad(hh)}:${pad(m)}`;
+    const h = hh % 12 === 0 ? 12 : hh % 12;
+    const ap = hh < 12 ? (short ? 'a' : ' AM') : short ? 'p' : ' PM';
     return `${h}${m ? ':' + pad(m) : ''}${ap}`;
   }
-  const fmtRange = (s, e, short) => `${fmtTime(s, short)}\u2013${fmtTime(e, short)}`;
+  const fmtRange = (s, e, short, use24) => `${fmtTime(s, short, use24)}\u2013${fmtTime(e, short, use24)}`;
 
   /* ---------- parsing ---------- */
 
@@ -280,7 +281,7 @@
 
   /**
    * One person's schedule as event objects.
-   * opts: { from, to (date keys, inclusive, optional), includeOff, prefix, midnightAs2359 }
+   * opts: { from, to (date keys, inclusive, optional), includeOff, prefix, midnightAs2359, time24 }
    */
   function buildPersonEvents(person, shifts, opts) {
     const o = opts || {};
@@ -301,7 +302,7 @@
           uid: uidBase, dateKey: k, allDay: false,
           startMin: r.startMin, endMin,
           summary: prefix,
-          description: `${r.label} (code ${r.code}): ${fmtRange(r.startMin, r.endMin, false).replace('\u2013', '-')}. From sheet "${cell.sheet}"`,
+          description: `${r.label} (code ${r.code}): ${fmtRange(r.startMin, r.endMin, false, o.time24).replace('\u2013', '-')}. From sheet "${cell.sheet}"`,
         });
       } else if (r.kind === 'allday') {
         events.push({

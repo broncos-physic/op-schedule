@@ -127,3 +127,9 @@ test('people remember which months they have a row in', () => {
   const d = C.parseWorkbook(XLSX, workbook(), C.DEFAULT_SHEET_PATTERN);
   assert.deepStrictEqual([...d.people.get('sam').months].sort(), ['2026-06', '2026-10']);
 });
+
+test('24-hour formatting', () => {
+  assert.strictEqual(C.fmtRange(15 * 60 + 30, 1440, true, true), '15:30–00:00');
+  assert.strictEqual(C.fmtTime(8 * 60, false, true), '08:00');
+  assert.strictEqual(C.fmtRange(15 * 60 + 30, 1440, true, false), '3:30p–12a');
+});
