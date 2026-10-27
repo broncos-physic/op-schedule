@@ -62,8 +62,9 @@
       sheetPattern: C.DEFAULT_SHEET_PATTERN,
       shifts: C.cloneShifts(),
       aliases: 'Bernard = Bernard K',
-      order: 'Bernard C\nJanis\nJohn\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw',
+      order: 'Afternoon:\nBernard C\nJanis\nJohn\nKristin\nMidnight:\nBernard K\nAbe\nTechs:\nAlex\nSarah\nYaw',
       showOff: true,
+      hide: 'Eliana\nZade',
       offFor: 'Bernard C\nJanis\nJohn\nAlex\nSarah\nYaw',
       time24: false,
       exEnd: true,
@@ -78,7 +79,7 @@
     let p = {};
     try { p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { p = {}; }
     const out = { ...d, ...p };
-    if (out.order === 'Bernard C\nJanis\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw') out.order = d.order; // earlier default, now with John
+    if (out.order === 'Bernard C\nJanis\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw' || out.order === 'Bernard C\nJanis\nJohn\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw') out.order = d.order; // earlier defaults, now grouped
     out.shifts = C.cloneShifts();
     for (const code of Object.keys(out.shifts)) {
       const s = p.shifts && p.shifts[code];
@@ -132,24 +133,59 @@
   let cursor = startOfDay(new Date());
   let hues = new Map();
 
-  // Names in the display order that aren't on the schedule yet (e.g. a new hire) still get an empty row.
+  // The order box: a line ending in ":" starts a group ("Afternoon:"), other lines are names.
+  function parseOrder() {
+    const groups = [];
+    let cur = { heading: null, names: [] };
+    groups.push(cur);
+    for (const raw of String(prefs.order || '').split(/\r?\n/)) {
+      const line = raw.trim().replace(/\s+/g, ' ');
+      if (!line) continue;
+      if (line.endsWith(':')) { cur = { heading: line.slice(0, -1).trim(), names: [] }; groups.push(cur); continue; }
+      cur.names.push(line);
+    }
+    return groups.filter((g) => g.names.length);
+  }
+
+  // Splits people (already in display order) into the order box's groups; anyone unlisted goes in "Others".
+  function layoutGroups(people) {
+    const groups = parseOrder();
+    const idx = new Map();
+    groups.forEach((g, i) => g.names.forEach((n) => { if (!idx.has(n.toLowerCase())) idx.set(n.toLowerCase(), i); }));
+    const anyHeading = groups.some((g) => g.heading);
+    const buckets = new Map();
+    for (const p of people) {
+      const gi = idx.has(p.key) ? idx.get(p.key) : groups.length;
+      if (!buckets.has(gi)) buckets.set(gi, []);
+      buckets.get(gi).push(p);
+    }
+    return [...buckets.keys()].sort((x, y) => x - y).map((gi) => ({
+      heading: gi < groups.length ? groups[gi].heading : anyHeading ? 'Others' : null,
+      people: buckets.get(gi),
+    }));
+  }
+
+  // Names in the order box that aren't on the schedule yet (e.g. a new hire) still get an empty row.
   function ensurePlaceholders() {
     for (const [k, p] of [...data.people]) if (p.placeholder) data.people.delete(k);
-    for (const line of String(prefs.order || '').split(/\r?\n/)) {
-      const name = line.trim().replace(/\s+/g, ' ');
-      if (!name) continue;
-      const key = name.toLowerCase();
-      if (!data.people.has(key)) data.people.set(key, { name, key, days: new Map(), months: new Set(), normalCode: null, placeholder: true });
+    for (const g of parseOrder()) {
+      for (const name of g.names) {
+        const key = name.toLowerCase();
+        if (!data.people.has(key)) data.people.set(key, { name, key, days: new Map(), months: new Set(), normalCode: null, placeholder: true });
+      }
     }
     chooseDefaultPerson();
   }
 
-  // Your display order first; anyone not listed follows alphabetically.
+  // Display order first; anyone not listed follows alphabetically.
   function sortedPeople() {
-    const rank = new Map(String(prefs.order || '').split(/\r?\n/).map((n) => n.trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean).map((n, i) => [n, i]));
+    const rank = new Map();
+    parseOrder().forEach((g) => g.names.forEach((n) => { if (!rank.has(n.toLowerCase())) rank.set(n.toLowerCase(), rank.size); }));
     const r = (p) => (rank.has(p.key) ? rank.get(p.key) : 1e6);
-    return [...data.people.values()].sort((a, b) => r(a) - r(b) || a.name.localeCompare(b.name));
+    const hidden = hiddenKeys();
+    return [...data.people.values()].filter((p) => !hidden.has(p.key)).sort((x, y) => r(x) - r(y) || x.name.localeCompare(y.name));
   }
+
   const currentPerson = () => data.people.get(prefs.person);
 
   function coworkerKeys() {
@@ -158,8 +194,10 @@
     return prefs.coworkers == null ? others : others.filter((k) => prefs.coworkers.includes(k));
   }
 
+  const hiddenKeys = () => new Set(String(prefs.hide || '').split(/\r?\n/).map((n) => n.trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean));
+
   function chooseDefaultPerson() {
-    if (data.people.has(prefs.person)) return;
+    if (data.people.has(prefs.person) && !hiddenKeys().has(prefs.person)) return;
     const keys = [...data.people.keys()];
     prefs.person = keys.includes('bernard c') ? 'bernard c' : keys.find((k) => k.startsWith('bernard c')) || sortedPeople()[0].key;
   }
@@ -267,7 +305,8 @@
 
   function renderPeople() {
     const sel = $('person');
-    sel.replaceChildren(...sortedPeople().map((p) => h('option', { value: p.key }, p.placeholder ? `${p.name} (not scheduled yet)` : p.name)));
+    const opt = (p) => h('option', { value: p.key }, p.placeholder ? `${p.name} (not scheduled yet)` : p.name);
+    sel.replaceChildren(...layoutGroups(sortedPeople()).map((g) => (g.heading ? h('optgroup', { label: g.heading }, g.people.map(opt)) : g.people.map(opt))).flat());
     sel.value = prefs.person;
   }
 
@@ -275,7 +314,7 @@
     const list = $('coList');
     const others = sortedPeople().filter((p) => p.key !== prefs.person);
     const on = new Set(coworkerKeys());
-    list.replaceChildren(...others.map((p) => {
+    const box = (p) => {
       const cb = h('input', { type: 'checkbox', value: p.key });
       cb.checked = prefs.coworkers == null || on.has(p.key);
       cb.addEventListener('change', () => {
@@ -285,13 +324,18 @@
         renderCalendar();
       });
       return h('label', {}, cb, h('i', { class: 'swatch', style: `--h:${hues.get(p.key)}` }), p.name, p.placeholder ? h('span', { class: 'muted' }, ' (not on the schedule yet)') : null);
-    }));
+    };
+    list.replaceChildren(...layoutGroups(others).map((g) => h('div', { class: 'co-group' },
+      g.heading ? h('div', { class: 'co-group-name' }, g.heading) : null,
+      h('div', { class: 'co-items' }, g.people.map(box)))));
   }
 
   function renderNotes() {
     const items = [...data.warnings];
     const unknown = new Map();
+    const hidden = hiddenKeys();
     for (const p of data.people.values()) {
+      if (hidden.has(p.key)) continue;
       for (const [k, cell] of p.days) {
         const r = C.resolveCell(cell.raw, prefs.shifts, C.ctxFor(p, k));
         if (r && r.kind === 'unknown') {
@@ -406,6 +450,7 @@
     const weeks = Math.ceil((first.getDay() + C.daysInMonth(y, m)) / 7);
     const start = addDays(first, -first.getDay());
     const todayKey = ymd(new Date());
+    const cgroups = layoutGroups(cos);
 
     const rows = [];
     for (let w = 0; w < weeks; w++) {
@@ -420,7 +465,10 @@
         cells.push(h('div', { class: cls.join(' '), 'aria-label': label },
           h('span', { class: 'num' }, d.getDate()),
           chipFor(you, d, 'you'),
-          cos.map((p) => chipFor(p, d, 'co'))));
+          cgroups.map((g) => {
+            const chips = g.people.map((p) => chipFor(p, d, 'co')).filter(Boolean);
+            return chips.length ? h('div', { class: 'grp' }, chips) : null;
+          })));
       }
       rows.push(h('div', { class: 'week-row' }, cells));
     }
@@ -445,10 +493,15 @@
 
     const head = h('div', { class: 'board-row board-head' }, h('div', { class: 'who' }),
       days.map((d) => h('div', { class: dayClass(d) }, DOW[d.getDay()], h('b', {}, d.getDate()))));
-    const rows = people.map((p, idx) =>
+    const personRow = (p, idx) =>
       h('div', { class: 'board-row' + (idx === 0 ? ' you-row' : ''), style: idx ? `--h:${hues.get(p.key)}` : '' },
-        h('div', { class: 'who' }, idx ? h('i', { class: 'swatch' }) : null, p.name),
-        days.map((d) => h('div', { class: dayClass(d) }, chipFor(p, d, idx === 0 ? 'you' : 'row')))));
+        h('div', { class: 'who', title: p.name }, idx ? h('i', { class: 'swatch' }) : null, p.name),
+        days.map((d) => h('div', { class: dayClass(d) }, chipFor(p, d, idx === 0 ? 'you' : 'row'))));
+    const rows = [personRow(you, 0)];
+    for (const g of layoutGroups(cos)) {
+      if (g.heading) rows.push(h('div', { class: 'board-group' }, g.heading));
+      g.people.forEach((p) => rows.push(personRow(p, 1)));
+    }
     cal.replaceChildren(h('div', { class: 'board' }, h('div', { class: 'board-inner' }, head, rows)));
   }
 
@@ -542,6 +595,7 @@
     $('stAliases').value = prefs.aliases;
     $('stOrder').value = prefs.order;
     $('stOff').value = prefs.offFor;
+    $('stHide').value = prefs.hide;
     $('settingsDlg').showModal();
   }
 
@@ -555,6 +609,7 @@
     const aliases = $('stAliases').value;
     prefs.order = $('stOrder').value;
     prefs.offFor = $('stOff').value;
+    prefs.hide = $('stHide').value;
     const patternChanged = pattern !== prefs.sheetPattern || aliases !== prefs.aliases;
     prefs.aliases = aliases;
     try { new RegExp(pattern, 'i'); prefs.sheetPattern = pattern; } catch (e) { toast('That sheet pattern isn\'t valid, so it was left as it was.'); }

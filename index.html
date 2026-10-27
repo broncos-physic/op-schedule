@@ -126,12 +126,16 @@
         <textarea id="stAliases" rows="2" spellcheck="false"></textarea>
       </label>
       <label class="field wide">
-        <span>Order of names in the list (one per line; anyone not listed goes last). A name that isn't on the schedule yet still gets an empty row.</span>
-        <textarea id="stOrder" rows="6" spellcheck="false"></textarea>
+        <span>Names, in order, one per line. A line ending in a colon starts a group heading. Anyone not listed goes last under Others. A name that isn't on the schedule yet still gets an empty row.</span>
+        <textarea id="stOrder" rows="12" spellcheck="false"></textarea>
       </label>
       <label class="field wide">
         <span>Show a dashed "off" chip on days off for (one name per line)</span>
         <textarea id="stOff" rows="4" spellcheck="false"></textarea>
+      </label>
+      <label class="field wide">
+        <span>Hide these people everywhere (one name per line)</span>
+        <textarea id="stHide" rows="2" spellcheck="false"></textarea>
       </label>
       <div class="dlg-actions spread">
         <button type="button" class="btn ghost" id="stReset">Reset times</button>

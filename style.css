@@ -162,7 +162,9 @@ main { padding: 18px clamp(12px, 3vw, 28px) 48px; max-width: 1280px; margin: 0 a
 .co-panel { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 14px; }
 .co-head { display: flex; gap: 12px; align-items: baseline; font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
 .co-head span { margin-right: auto; }
-.co-list { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.co-list { display: flex; flex-wrap: wrap; gap: 10px 36px; }
+.co-group-name { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.co-items { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .co-list label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; background: hsl(var(--h) 60% 48%); }
 
@@ -231,6 +233,10 @@ main { padding: 18px clamp(12px, 3vw, 28px) 48px; max-width: 1280px; margin: 0 a
 [data-code="E"] { --sc: var(--c-E); }
 [data-code="D"] { --sc: var(--c-D); }
 [data-code="S"] { --sc: var(--c-S); }
+
+.grp { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.grp + .grp { margin-top: 6px; }
+.board-group { padding: 12px 8px 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line-soft); background: var(--surface); }
 
 .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 0.82rem; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
