@@ -205,6 +205,7 @@ main { padding: 18px clamp(12px, 3vw, 28px) 48px; max-width: 1280px; margin: 0 a
   padding: 1px 5px;
 }
 .chip .nm { font-weight: 500; }
+.t-start { display: none; }
 .chip.co .sc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--sc, var(--c-other)); margin-right: 4px; vertical-align: 0; }
 .chip.status { background: transparent; color: var(--muted); border: 1px dashed var(--line); font-style: italic; }
 .chip.unknown { background: transparent; color: var(--ink); border: 1px dashed var(--muted); }
@@ -287,7 +288,9 @@ dialog h3 { margin: 0 0 12px; font-size: 1.1rem; }
   .chip { font-size: 0.68rem; padding: 2px 3px; }
   .chip.you { font-size: 0.7rem; }
   .chip.co { padding: 1px 3px; border-left-width: 3px; }
-  .cell .chip .time:not(.always) { display: none; }
+  .cell .chip .time { display: none; }
+  .cell .chip .t-full { display: none; }
+  .cell .chip .t-start { display: inline; }
   .cell .chip.co .sc { display: none; }
   .file-status { flex-basis: 100%; order: 3; }
   .dow div { padding: 5px 2px; text-align: center; }

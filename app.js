@@ -62,6 +62,7 @@
       sheetPattern: C.DEFAULT_SHEET_PATTERN,
       shifts: C.cloneShifts(),
       aliases: 'Bernard = Bernard K',
+      order: 'Bernard C\nJanis\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw',
       exRange: 'future',
       exReminder: '0',
       exOff: false,
@@ -123,7 +124,12 @@
   let cursor = startOfDay(new Date());
   let hues = new Map();
 
-  const sortedPeople = () => [...data.people.values()].sort((a, b) => a.name.localeCompare(b.name));
+  // Your display order first; anyone not listed follows alphabetically.
+  function sortedPeople() {
+    const rank = new Map(String(prefs.order || '').split(/\r?\n/).map((n) => n.trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean).map((n, i) => [n, i]));
+    const r = (p) => (rank.has(p.key) ? rank.get(p.key) : 1e6);
+    return [...data.people.values()].sort((a, b) => r(a) - r(b) || a.name.localeCompare(b.name));
+  }
   const currentPerson = () => data.people.get(prefs.person);
 
   function coworkerKeys() {
@@ -214,6 +220,7 @@
   /* ---------- rendering ---------- */
 
   function renderAll() {
+    hues = new Map(sortedPeople().map((p, i) => [p.key, Math.round((i * 137.508) % 360)]));
     renderFileStatus();
     renderPeople();
     renderCoworkers();
@@ -321,7 +328,7 @@
     let text;
     if (r.kind === 'shift') {
       const range = C.fmtRange(r.startMin, r.endMin, true);
-      text = r.custom ? range : `${r.code} ${range}`;
+      text = range;
     } else if (r.kind === 'allday') text = 'Special shift';
     else if (r.kind === 'timeoff') text = 'Off (requested)';
     else if (r.kind === 'sick') text = 'Called in sick';
@@ -331,8 +338,7 @@
     if (r.kind === 'shift') {
       const range = C.fmtRange(r.startMin, r.endMin, true);
       if (mode === 'co') el.append(h('span', { class: 'sc' }), h('span', { class: 'nm' }, person.name), ' ', h('span', { class: 'time' }, range));
-      else if (r.custom) el.append(h('span', { class: 'time always' }, range));
-      else el.append(h('span', { class: 'code' }, r.code), ' ', h('span', { class: 'time' }, range));
+      else el.append(h('span', { class: 't-full' }, range), h('span', { class: 't-start' }, C.fmtTime(r.startMin, true)));
     } else {
       el.textContent = text;
     }
@@ -488,6 +494,7 @@
     $('shiftTable').replaceChildren(...rows);
     $('stPattern').value = prefs.sheetPattern;
     $('stAliases').value = prefs.aliases;
+    $('stOrder').value = prefs.order;
     $('settingsDlg').showModal();
   }
 
@@ -499,6 +506,7 @@
     });
     const pattern = $('stPattern').value.trim() || C.DEFAULT_SHEET_PATTERN;
     const aliases = $('stAliases').value;
+    prefs.order = $('stOrder').value;
     const patternChanged = pattern !== prefs.sheetPattern || aliases !== prefs.aliases;
     prefs.aliases = aliases;
     try { new RegExp(pattern, 'i'); prefs.sheetPattern = pattern; } catch (e) { toast('That sheet pattern isn\'t valid, so it was left as it was.'); }
