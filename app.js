@@ -62,7 +62,9 @@
       sheetPattern: C.DEFAULT_SHEET_PATTERN,
       shifts: C.cloneShifts(),
       aliases: 'Bernard = Bernard K',
-      order: 'Bernard C\nJanis\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw',
+      order: 'Bernard C\nJanis\nJohn\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw',
+      showOff: true,
+      exEnd: true,
       exRange: 'future',
       exReminder: '0',
       exOff: false,
@@ -74,6 +76,7 @@
     let p = {};
     try { p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { p = {}; }
     const out = { ...d, ...p };
+    if (out.order === 'Bernard C\nJanis\nKristin\nBernard K\nAbe\nAlex\nSarah\nYaw') out.order = d.order; // earlier default, now with John
     out.shifts = C.cloneShifts();
     for (const code of Object.keys(out.shifts)) {
       const s = p.shifts && p.shifts[code];
@@ -123,6 +126,18 @@
   let fileMeta = null;  // { name, savedAt, persisted }
   let cursor = startOfDay(new Date());
   let hues = new Map();
+
+  // Names in the display order that aren't on the schedule yet (e.g. a new hire) still get an empty row.
+  function ensurePlaceholders() {
+    for (const [k, p] of [...data.people]) if (p.placeholder) data.people.delete(k);
+    for (const line of String(prefs.order || '').split(/\r?\n/)) {
+      const name = line.trim().replace(/\s+/g, ' ');
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!data.people.has(key)) data.people.set(key, { name, key, days: new Map(), months: new Set(), normalCode: null, placeholder: true });
+    }
+    chooseDefaultPerson();
+  }
 
   // Your display order first; anyone not listed follows alphabetically.
   function sortedPeople() {
@@ -220,6 +235,7 @@
   /* ---------- rendering ---------- */
 
   function renderAll() {
+    ensurePlaceholders();
     hues = new Map(sortedPeople().map((p, i) => [p.key, Math.round((i * 137.508) % 360)]));
     renderFileStatus();
     renderPeople();
@@ -229,6 +245,7 @@
     renderCalendar();
     $('toggleCo').setAttribute('aria-pressed', String(prefs.showCo));
     $('coPanel').hidden = !prefs.showCo;
+    $('showOff').checked = prefs.showOff;
     document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === prefs.view)));
   }
 
@@ -244,7 +261,7 @@
 
   function renderPeople() {
     const sel = $('person');
-    sel.replaceChildren(...sortedPeople().map((p) => h('option', { value: p.key }, p.name)));
+    sel.replaceChildren(...sortedPeople().map((p) => h('option', { value: p.key }, p.placeholder ? `${p.name} (not scheduled yet)` : p.name)));
     sel.value = prefs.person;
   }
 
@@ -261,7 +278,7 @@
         savePrefs();
         renderCalendar();
       });
-      return h('label', {}, cb, h('i', { class: 'swatch', style: `--h:${hues.get(p.key)}` }), p.name);
+      return h('label', {}, cb, h('i', { class: 'swatch', style: `--h:${hues.get(p.key)}` }), p.name, p.placeholder ? h('span', { class: 'muted' }, ' (not on the schedule yet)') : null);
     }));
   }
 
@@ -299,6 +316,7 @@
       if (s.weekend) items.splice(Object.keys(prefs.shifts).indexOf(code) + 1, 0, h('span', { 'data-code': code }, h('i'), `${s.label} on Sat/Sun: ${rangeText(s.weekend)}`));
     }
     items.push(h('span', { 'data-code': 'S' }, h('i'), 'Special shift (no time listed)'));
+    if (prefs.showOff && prefs.showCo) items.push(h('span', { class: 'muted' }, 'Dashed = day off'));
     L.replaceChildren(...items);
   }
 
@@ -345,6 +363,22 @@
     return el;
   }
 
+  function makeOff(person, mode) {
+    const el = h('div', { class: `chip ${mode} off`, title: `${person.name}: off`, style: mode === 'co' ? `--h:${hues.get(person.key)}` : '' });
+    if (mode === 'co') el.append(h('span', { class: 'nm' }, person.name), ' ', h('span', { class: 'time' }, 'off'));
+    else el.textContent = 'off';
+    return el;
+  }
+
+  // One person on one day: their shift, or a dashed "off" chip when they're on this month's schedule but not working.
+  function chipFor(person, date, mode) {
+    const r = cellFor(person, date);
+    if (mode === 'you') return makeChip(person, r, 'you');
+    if (r && (r.kind === 'shift' || r.kind === 'allday' || r.kind === 'unknown')) return makeChip(person, r, mode);
+    if (prefs.showOff && person.months && person.months.has(ymd(date).slice(0, 7))) return makeOff(person, mode);
+    return null;
+  }
+
   function renderCalendar() {
     if (!data) return;
     const cal = $('calendar');
@@ -375,8 +409,8 @@
         const label = `${DOW[d.getDay()]} ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
         cells.push(h('div', { class: cls.join(' '), 'aria-label': label },
           h('span', { class: 'num' }, d.getDate()),
-          makeChip(you, cellFor(you, d), 'you'),
-          cos.map((p) => makeChip(p, cellFor(p, d), 'co'))));
+          chipFor(you, d, 'you'),
+          cos.map((p) => chipFor(p, d, 'co'))));
       }
       rows.push(h('div', { class: 'week-row' }, cells));
     }
@@ -404,7 +438,7 @@
     const rows = people.map((p, idx) =>
       h('div', { class: 'board-row' + (idx === 0 ? ' you-row' : ''), style: idx ? `--h:${hues.get(p.key)}` : '' },
         h('div', { class: 'who' }, idx ? h('i', { class: 'swatch' }) : null, p.name),
-        days.map((d) => h('div', { class: dayClass(d) }, makeChip(p, cellFor(p, d), idx === 0 ? 'you' : 'row')))));
+        days.map((d) => h('div', { class: dayClass(d) }, chipFor(p, d, idx === 0 ? 'you' : 'row')))));
     cal.replaceChildren(h('div', { class: 'board' }, h('div', { class: 'board-inner' }, head, rows)));
   }
 
@@ -430,7 +464,7 @@
 
   function currentEvents() {
     return C.buildPersonEvents(currentPerson(), prefs.shifts, {
-      ...exportRange(), includeOff: $('exOff').checked, prefix: $('exPrefix').value.trim() || 'Work',
+      ...exportRange(), includeOff: $('exOff').checked, prefix: $('exPrefix').value.trim() || 'Work', midnightAs2359: $('exEnd').checked,
     });
   }
 
@@ -447,6 +481,7 @@
     $('exPrefix').value = prefs.prefix;
     $('exReminder').value = prefs.exReminder;
     $('exOff').checked = prefs.exOff;
+    $('exEnd').checked = prefs.exEnd;
     updateExportCount();
     $('exportDlg').showModal();
   }
@@ -458,6 +493,7 @@
     prefs.prefix = $('exPrefix').value.trim() || 'Work';
     prefs.exReminder = $('exReminder').value;
     prefs.exOff = $('exOff').checked;
+    prefs.exEnd = $('exEnd').checked;
     savePrefs();
 
     const events = currentEvents();
@@ -536,6 +572,7 @@
       $('coPanel').hidden = !prefs.showCo;
       renderCoworkers(); renderCalendar();
     });
+    $('showOff').addEventListener('change', (e) => { prefs.showOff = e.target.checked; savePrefs(); renderLegend(); renderCalendar(); });
     $('coAll').addEventListener('click', () => { prefs.coworkers = null; savePrefs(); renderCoworkers(); renderCalendar(); });
     $('coNone').addEventListener('click', () => { prefs.coworkers = []; savePrefs(); renderCoworkers(); renderCalendar(); });
 
@@ -547,7 +584,7 @@
     $('today').addEventListener('click', () => { cursor = startOfDay(new Date()); renderCalendar(); });
 
     $('btnExport').addEventListener('click', openExport);
-    ['exRange', 'exOff', 'exPrefix'].forEach((id) => $(id).addEventListener('input', updateExportCount));
+    ['exRange', 'exOff', 'exPrefix', 'exEnd'].forEach((id) => $(id).addEventListener('input', updateExportCount));
     $('exportForm').addEventListener('submit', (e) => {
       if (e.submitter && e.submitter.id === 'exGo') downloadICS();
     });

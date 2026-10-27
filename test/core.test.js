@@ -105,3 +105,25 @@ test('name aliases merge two spellings into one person', () => {
   assert.deepStrictEqual([...d.people.keys()], ['bernard k']);
   assert.strictEqual(d.people.get('bernard k').days.size, 8);
 });
+
+test('event titles are just the prefix', () => {
+  const d = C.parseWorkbook(XLSX, workbook(), C.DEFAULT_SHEET_PATTERN);
+  const ev = C.buildPersonEvents(d.people.get('pat q'), C.DEFAULT_SHIFTS, { from: '2026-10-01', to: '2026-10-31', prefix: 'Work' });
+  assert.ok(ev.every((e) => e.summary === 'Work'));
+});
+
+test('12 AM ends can be written as 11:59 PM, but 8 AM ends are untouched', () => {
+  const d = C.parseWorkbook(XLSX, workbook(), C.DEFAULT_SHEET_PATTERN);
+  const p = d.people.get('pat q');
+  const on = C.buildICS(C.buildPersonEvents(p, C.DEFAULT_SHIFTS, { from: '2026-10-01', to: '2026-10-02', midnightAs2359: true }), {});
+  const off = C.buildICS(C.buildPersonEvents(p, C.DEFAULT_SHIFTS, { from: '2026-10-01', to: '2026-10-02', midnightAs2359: false }), {});
+  assert.match(on, /DTSTART;TZID=America\/Detroit:20261001T153000\r\nDTEND;TZID=America\/Detroit:20261001T235900/);
+  assert.match(off, /DTEND;TZID=America\/Detroit:20261002T000000/);
+  const m = C.buildICS(C.buildPersonEvents(p, C.DEFAULT_SHIFTS, { from: '2026-10-04', to: '2026-10-04', midnightAs2359: true }), {});
+  assert.match(m, /DTEND;TZID=America\/Detroit:20261005T080000/);
+});
+
+test('people remember which months they have a row in', () => {
+  const d = C.parseWorkbook(XLSX, workbook(), C.DEFAULT_SHEET_PATTERN);
+  assert.deepStrictEqual([...d.people.get('sam').months].sort(), ['2026-06', '2026-10']);
+});

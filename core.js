@@ -176,8 +176,9 @@
         if (cells.length < 3) continue; // legend lines and spacer rows
 
         const key = personKey(name);
-        if (!out.people.has(key)) out.people.set(key, { name, key, days: new Map() });
+        if (!out.people.has(key)) out.people.set(key, { name, key, days: new Map(), months: new Set() });
         const person = out.people.get(key);
+        person.months.add(dateKey(ym.year, ym.month, 1).slice(0, 7)); // they have a row this month, so blank days are days off
         for (const { day, raw } of cells) {
           person.days.set(dateKey(ym.year, ym.month, day), { raw, sheet: sheetName });
         }
@@ -279,7 +280,7 @@
 
   /**
    * One person's schedule as event objects.
-   * opts: { from, to (date keys, inclusive, optional), includeOff, prefix }
+   * opts: { from, to (date keys, inclusive, optional), includeOff, prefix, midnightAs2359 }
    */
   function buildPersonEvents(person, shifts, opts) {
     const o = opts || {};
@@ -294,17 +295,19 @@
       if (!r) continue;
       const uidBase = `${slug(person.name)}-${compactDate(k)}-${slug(r.code)}@shift-calendar`;
       if (r.kind === 'shift') {
+        let endMin = r.endMin;
+        if (o.midnightAs2359 && endMin % 1440 === 0) endMin -= 1; // 12 AM -> 11:59 PM the same night
         events.push({
           uid: uidBase, dateKey: k, allDay: false,
-          startMin: r.startMin, endMin: r.endMin,
-          summary: `${prefix}: ${r.label} ${fmtRange(r.startMin, r.endMin, false).replace('\u2013', '-')}`,
-          description: `${r.label} (code ${r.code}) from sheet "${cell.sheet}"`,
+          startMin: r.startMin, endMin,
+          summary: prefix,
+          description: `${r.label} (code ${r.code}): ${fmtRange(r.startMin, r.endMin, false).replace('\u2013', '-')}. From sheet "${cell.sheet}"`,
         });
       } else if (r.kind === 'allday') {
         events.push({
           uid: uidBase, dateKey: k, allDay: true,
-          summary: `${prefix}: ${r.label}`,
-          description: `Time not listed in the schedule. From sheet "${cell.sheet}"`,
+          summary: prefix,
+          description: `${r.label}. Time not listed in the schedule. From sheet "${cell.sheet}"`,
         });
       } else if (o.includeOff && (r.kind === 'timeoff' || r.kind === 'sick')) {
         events.push({

@@ -45,6 +45,7 @@
       <div class="co-panel" id="coPanel" hidden>
         <div class="co-head">
           <span>Coworkers to show</span>
+          <label class="inline"><input type="checkbox" id="showOff"> Show days off (dashed)</label>
           <button type="button" class="link" id="coAll">All</button>
           <button type="button" class="link" id="coNone">None</button>
         </div>
@@ -84,7 +85,7 @@
         <input type="text" id="exLocation">
       </label>
       <label class="field wide">
-        <span>Event title starts with</span>
+        <span>Event title</span>
         <input type="text" id="exPrefix">
       </label>
       <label class="field wide">
@@ -97,6 +98,7 @@
           <option value="720">12 hours before</option>
         </select>
       </label>
+      <label class="check"><input type="checkbox" id="exEnd"> End shifts that finish at 12 AM at 11:59 PM instead</label>
       <label class="check"><input type="checkbox" id="exOff"> Also add requested time off and sick calls as all-day events</label>
       <p class="hint" id="exCount"></p>
       <div class="dlg-actions">
@@ -120,7 +122,7 @@
         <textarea id="stAliases" rows="2" spellcheck="false"></textarea>
       </label>
       <label class="field wide">
-        <span>Order of names in the list (one per line; anyone not listed goes last)</span>
+        <span>Order of names in the list (one per line; anyone not listed goes last). A name that isn't on the schedule yet still gets an empty row.</span>
         <textarea id="stOrder" rows="6" spellcheck="false"></textarea>
       </label>
       <div class="dlg-actions spread">

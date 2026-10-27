@@ -205,6 +205,17 @@ main { padding: 18px clamp(12px, 3vw, 28px) 48px; max-width: 1280px; margin: 0 a
   padding: 1px 5px;
 }
 .chip .nm { font-weight: 500; }
+.muted { color: var(--muted); }
+.co-head .inline { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin-right: 8px; }
+.chip.off, .chip.co.off, .chip.row.off {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-left: 4px dashed var(--line);
+  font-style: italic;
+  opacity: 0.8;
+}
+.chip.co.off { border-left-color: hsl(var(--h) 35% 62%); }
 .t-start { display: none; }
 .chip.co .sc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--sc, var(--c-other)); margin-right: 4px; vertical-align: 0; }
 .chip.status { background: transparent; color: var(--muted); border: 1px dashed var(--line); font-style: italic; }
