@@ -382,11 +382,12 @@
   }
 
   // mode: 'you' (filled), 'co' (outlined, with name, for the month grid), 'row' (rota board cell)
-  function makeChip(person, r, mode) {
+  function makeChip(person, r, mode, showName) {
     if (!r) return null;
     const isYou = mode === 'you';
     if (!isYou && (r.kind === 'timeoff' || r.kind === 'sick')) return null;
     const cls = ['chip', mode];
+    if (showName) cls.push('named');
     if (r.kind === 'timeoff' || r.kind === 'sick') cls.push('status');
     if (r.kind === 'unknown') cls.push('unknown');
     const attrs = { class: cls.join(' '), title: chipTitle(person, r) };
@@ -405,8 +406,11 @@
     const el = h('div', attrs);
     if (r.kind === 'shift') {
       const range = fmtR(r.startMin, r.endMin, true);
-      if (mode === 'co') el.append(h('span', { class: 'sc' }), h('span', { class: 'nm' }, person.name), ' ', h('span', { class: 'time' }, range));
-      else el.append(h('span', { class: 't-full' }, range), h('span', { class: 't-start' }, fmtT(r.startMin, true)));
+      if (mode === 'co') el.append(h('span', { class: 'sc' }), h('span', { class: 'nm' }, person.name), h('span', { class: 'time' }, range));
+      else {
+        if (showName) el.append(h('span', { class: 'nm' }, person.name));
+        el.append(h('span', { class: 't-full' }, range), h('span', { class: 't-start' }, fmtT(r.startMin, true)));
+      }
     } else {
       el.textContent = text;
     }
@@ -415,7 +419,7 @@
 
   function makeOff(person, mode) {
     const el = h('div', { class: `chip ${mode} off`, title: `${person.name}: off`, style: mode === 'co' ? `--h:${hues.get(person.key)}` : '' });
-    if (mode === 'co') el.append(h('span', { class: 'nm' }, person.name), ' ', h('span', { class: 'time' }, 'off'));
+    if (mode === 'co') el.append(h('span', { class: 'nm' }, person.name), h('span', { class: 'time' }, 'off'));
     else el.textContent = 'off';
     return el;
   }
@@ -424,9 +428,9 @@
   let offKeys = new Set();
   const parseNames = (t) => new Set(String(t || '').split(/\r?\n/).map((n) => n.trim().replace(/\s+/g, ' ').toLowerCase()).filter(Boolean));
 
-  function chipFor(person, date, mode) {
+  function chipFor(person, date, mode, showName) {
     const r = cellFor(person, date);
-    if (mode === 'you') return makeChip(person, r, 'you');
+    if (mode === 'you') return makeChip(person, r, 'you', showName);
     if (r && (r.kind === 'shift' || r.kind === 'allday' || r.kind === 'unknown')) return makeChip(person, r, mode);
     if (prefs.showOff && offKeys.has(person.key) && person.months && person.months.has(ymd(date).slice(0, 7))) return makeOff(person, mode);
     return null;
@@ -464,10 +468,10 @@
         const label = `${DOW[d.getDay()]} ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
         cells.push(h('div', { class: cls.join(' '), 'aria-label': label },
           h('span', { class: 'num' }, d.getDate()),
-          chipFor(you, d, 'you'),
+          chipFor(you, d, 'you', true),
           cgroups.map((g) => {
             const chips = g.people.map((p) => chipFor(p, d, 'co')).filter(Boolean);
-            return chips.length ? h('div', { class: 'grp' }, chips) : null;
+            return chips.length ? h('div', { class: 'grp' }, g.heading ? h('div', { class: 'grp-name' }, g.heading) : null, chips) : null;
           })));
       }
       rows.push(h('div', { class: 'week-row' }, cells));
