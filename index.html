@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shift Calendar</title>
+  <meta name="description" content="Turn a monthly shift spreadsheet into a calendar and download it as an .ics file.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314213d'/%3E%3Crect x='6' y='9' width='20' height='3' fill='%23fff'/%3E%3Crect x='6' y='15' width='9' height='8' fill='%232f6fed'/%3E%3Crect x='17' y='15' width='9' height='8' fill='%234b3f8f'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Shift Calendar</h1>
+    <p class="file-status" id="fileStatus" aria-live="polite"></p>
+    <div class="topbar-actions">
+      <button type="button" class="btn" id="btnUpload">Upload schedule</button>
+      <button type="button" class="btn ghost" id="btnSettings">Settings</button>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls" hidden>
+  </header>
+
+  <div class="banner" id="banner" role="alert" hidden></div>
+
+  <main>
+    <section class="empty" id="empty">
+      <h2>Drop your schedule spreadsheet here</h2>
+      <p>Use the Excel file with one sheet per month, such as <em>Oct 26 A M</em>. It stays in this browser and is remembered for next time. Nothing is uploaded anywhere.</p>
+      <button type="button" class="btn primary" id="btnUpload2">Choose a file</button>
+    </section>
+
+    <section id="app" hidden>
+      <div class="controls">
+        <label class="field">
+          <span>Schedule for</span>
+          <select id="person"></select>
+        </label>
+        <button type="button" class="btn toggle" id="toggleCo" aria-pressed="false">Show coworkers</button>
+        <div class="seg" role="group" aria-label="Calendar view">
+          <button type="button" data-view="month" aria-pressed="true">Month</button>
+          <button type="button" data-view="week" aria-pressed="false">Week</button>
+        </div>
+        <button type="button" class="btn primary" id="btnExport">Download .ics</button>
+      </div>
+
+      <div class="co-panel" id="coPanel" hidden>
+        <div class="co-head">
+          <span>Coworkers to show</span>
+          <button type="button" class="link" id="coAll">All</button>
+          <button type="button" class="link" id="coNone">None</button>
+        </div>
+        <div class="co-list" id="coList"></div>
+      </div>
+
+      <details class="notes" id="notes" hidden>
+        <summary id="notesSummary"></summary>
+        <ul id="notesList"></ul>
+      </details>
+
+      <div class="nav">
+        <button type="button" class="icon-btn" id="prev" aria-label="Previous">&#8249;</button>
+        <h2 id="calTitle"></h2>
+        <button type="button" class="icon-btn" id="next" aria-label="Next">&#8250;</button>
+        <button type="button" class="btn ghost" id="today">Today</button>
+      </div>
+
+      <div id="calendar"></div>
+      <div class="legend" id="legend" aria-label="Shift colors"></div>
+    </section>
+  </main>
+
+  <dialog id="exportDlg">
+    <form method="dialog" id="exportForm">
+      <h3>Download <span id="exportWho"></span>'s schedule</h3>
+      <label class="field wide">
+        <span>Which shifts</span>
+        <select id="exRange">
+          <option value="future">From today onward</option>
+          <option value="month">Month on screen</option>
+          <option value="all">Every month in the file</option>
+        </select>
+      </label>
+      <label class="field wide">
+        <span>Location</span>
+        <input type="text" id="exLocation">
+      </label>
+      <label class="field wide">
+        <span>Event title starts with</span>
+        <input type="text" id="exPrefix">
+      </label>
+      <label class="field wide">
+        <span>Reminder</span>
+        <select id="exReminder">
+          <option value="0">None</option>
+          <option value="30">30 minutes before</option>
+          <option value="60">1 hour before</option>
+          <option value="120">2 hours before</option>
+          <option value="720">12 hours before</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="exOff"> Also add requested time off and sick calls as all-day events</label>
+      <p class="hint" id="exCount"></p>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary" id="exGo" value="go">Download .ics</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDlg">
+    <form method="dialog" id="settingsForm">
+      <h3>Settings</h3>
+      <p class="hint">Shift times for each code. The spreadsheet legend gives most of these; <strong>D</strong> has no hours in the legend, so that one is a guess. A shift that ends before it starts runs overnight.</p>
+      <div class="shift-table" id="shiftTable"></div>
+      <label class="field wide">
+        <span>Sheets to read (pattern for the sheet name)</span>
+        <input type="text" id="stPattern" spellcheck="false">
+      </label>
+      <label class="field wide">
+        <span>Same person under two names (one per line, <em>spelling in sheet = name to use</em>)</span>
+        <textarea id="stAliases" rows="2" spellcheck="false"></textarea>
+      </label>
+      <div class="dlg-actions spread">
+        <button type="button" class="btn ghost" id="stReset">Reset times</button>
+        <button type="button" class="btn ghost danger" id="stForget">Forget saved file</button>
+        <span class="grow"></span>
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="dropveil" id="dropVeil" hidden>Drop the spreadsheet to load it</div>
+
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

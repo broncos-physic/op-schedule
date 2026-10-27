@@ -1,0 +1,12 @@
+{
+  "name": "shift-calendar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Turns a monthly shift-schedule spreadsheet into a calendar and .ics export. Static site, no build step.",
+  "scripts": {
+    "test": "node --test test/core.test.js"
+  },
+  "devDependencies": {
+    "xlsx": "0.18.5"
+  }
+}
